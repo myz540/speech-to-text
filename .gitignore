@@ -1,4 +1,7 @@
+# pycharm
 .idea
+# exploratory jupyter notebooks
+pynb
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
