@@ -1,9 +1,9 @@
 import logging
+import sys
 import time
 
 import speech_recognition as sr
 from pynput import keyboard
-
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -27,12 +27,12 @@ class SpeechToKeyboard:
     * The keyboard listener is configured to listen for certain hotkeys. These hotkeys when activated will trigger a
     callback function.
 
-    **  `z+c`: The most basic command, this will toggle audio recording on/off. When turned on, the microphone will
+    **  `<shift>+<tab>`: The most basic command, this will toggle audio recording on/off. When turned on, the microphone will
         capture utterances until a certain break in speech is detected. When a break is detected, the
         `audio_recognizer_callback()` callback function is called with the captured audio data. These settings can be
         further configured in the speech recognizer resource.
 
-    **  `z+x`: Stop the keyboard listener. This will effectively end the program since the thread cannot be resumed
+    **  ``: Stop the keyboard listener. This will effectively end the program since the thread cannot be resumed
         later, requiring a new instance to be instantiated.
 
     * The keyboard controller is initialized and called as part of the `audio_recognizer_callback()` function. This
@@ -46,8 +46,8 @@ class SpeechToKeyboard:
         self.microphone = sr.Microphone()
         self.keyboard_controller = keyboard.Controller()
         self.keyboard_listener = keyboard.GlobalHotKeys(
-            {'z+c': self.toggle_recording,
-             'z+x': self.stop_keyboard_listener}
+            {'<shift>+<tab>': self.toggle_recording,
+             '<shift>+<cmd>': self.stop_keyboard_listener}
         )
         self.is_recording = False
 
@@ -75,6 +75,7 @@ class SpeechToKeyboard:
         logger.info("stop keyboard listener")
         if self.keyboard_listener is not None:
             self.keyboard_listener.stop()
+            sys.exit(0)
 
     def audio_recognizer_callback(self, recognizer, audio):
         logger.debug("in callback")
@@ -98,6 +99,5 @@ class SpeechToKeyboard:
 
 
 if __name__ == "__main__":
-    logger.error("HERE")
     x = SpeechToKeyboard()
     time.sleep(1000)
