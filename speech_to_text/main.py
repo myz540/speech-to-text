@@ -16,30 +16,68 @@ handler.setFormatter(formatter)
 logger.addHandler(handler)
 
 
-class AudioRecorder:
+class SpeechToKeyboard:
+    """The `SpeechToKeyboard` class wraps a microphone audio source, a speech recognizer object, a keyboard controller,
+    and a keyboard listener. On instantiation, all four previously mentioned resources are initialized.
+
+    * The speech recognizer is initialized.
+
+    * The microphone audio source is initialized and adjusted for ambient noise.
+
+    * The keyboard listener is configured to listen for certain hotkeys. These hotkeys when activated will trigger a
+    callback function.
+
+    **  `z+c`: The most basic command, this will toggle audio recording on/off. When turned on, the microphone will
+        capture utterances until a certain break in speech is detected. When a break is detected, the
+        `audio_recognizer_callback()` callback function is called with the captured audio data. These settings can be
+        further configured in the speech recognizer resource.
+
+    **  `z+x`: Stop the keyboard listener. This will effectively end the program since the thread cannot be resumed
+        later, requiring a new instance to be instantiated.
+
+    * The keyboard controller is initialized and called as part of the `audio_recognizer_callback()` function. This
+    callback converts the speech to text and parses the text into keyboard controller commands. For the moment,
+    punctuation and special characters are not supported but adding an escape utterance and proper processing of the
+    text before feeding to the keyboard controller would allow additional functionality
+
+    """
     def __init__(self):
         self.recognizer = sr.Recognizer()
         self.microphone = sr.Microphone()
         self.keyboard_controller = keyboard.Controller()
-        self.keyboard_listener = keyboard.Listener(
-            on_press=self.on_press, on_release=self.on_release
+        self.keyboard_listener = keyboard.GlobalHotKeys(
+            {'z+c': self.toggle_recording,
+             'z+x': self.stop_keyboard_listener}
         )
-        self.hotkey = keyboard.HotKey(keys=keyboard.HotKey.parse('<ctrl>+<alt>+h'), on_activate=self.on_activate)
-
         self.is_recording = False
 
         with self.microphone as source:
             logger.info("calibrating...")
             self.recognizer.adjust_for_ambient_noise(source)
 
+        # callback function for the audio listener thread
+        self.stop_recording_callback = None
+        # start the keyboard listener thread
         self.keyboard_listener.start()
 
-    def on_activate(self):
-        print("HotKey activated!")
+    def toggle_recording(self):
+        if self.is_recording and self.stop_recording_callback is not None:
+            logger.info("stop recording hotkey activated")
+            self.stop_recording_callback(wait_for_stop=False)
+        else:
+            logger.info("start recording hotkey activated")
+            self.stop_recording_callback = self.recognizer.listen_in_background(
+                self.microphone, self.audio_recognizer_callback
+            )
+        self.is_recording = not self.is_recording
 
-    def callback(self, recognizer, audio):
+    def stop_keyboard_listener(self):
+        logger.info("stop keyboard listener")
+        if self.keyboard_listener is not None:
+            self.keyboard_listener.stop()
+
+    def audio_recognizer_callback(self, recognizer, audio):
         logger.debug("in callback")
-        # received audio data, now we'll recognize it using Google Speech Recognition
         try:
             # for testing purposes, we're just using the default API key
             # to use another API key, use `r.recognize_google(audio, key="GOOGLE_SPEECH_RECOGNITION_API_KEY")`
@@ -47,7 +85,7 @@ class AudioRecorder:
             data = recognizer.recognize_google(audio)
             chars = list(data)
             for c in chars:
-                self.keyboard_controller.press(c)
+                self.keyboard_controller.tap(c)
             logger.info("Google Speech Recognition thinks you said " + data)
         except sr.UnknownValueError:
             print("Google Speech Recognition could not understand audio")
@@ -58,27 +96,8 @@ class AudioRecorder:
                 )
             )
 
-    def on_press(self, key):
-        logger.info(f"pressed {key}")
-        if key == keyboard.Key.cmd or key == keyboard.Key.cmd_r:
-            if not self.is_recording:
-                self.is_recording = True
-                logger.info("starting audio listener")
-                self.stop_listening = self.recognizer.listen_in_background(
-                    self.microphone, self.callback
-                )
-            else:
-                self.is_recording = False
-                logger.info("stopping audio listener")
-                self.stop_listening(wait_for_stop=False)
-
-    def on_release(self, key):
-        if key == keyboard.Key.esc:
-            logger.info("stopping keyboard listener")
-            return False
-
 
 if __name__ == "__main__":
     logger.error("HERE")
-    x = AudioRecorder()
-    time.sleep(100)
+    x = SpeechToKeyboard()
+    time.sleep(1000)
