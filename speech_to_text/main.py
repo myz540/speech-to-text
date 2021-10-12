@@ -47,7 +47,7 @@ class SpeechToKeyboard:
         self.keyboard_controller = keyboard.Controller()
         self.keyboard_listener = keyboard.GlobalHotKeys(
             {'<shift>+<tab>': self.toggle_recording,
-             '<shift>+<cmd>': self.stop_keyboard_listener}
+             '<shift>+<cmd>+x': self.stop_keyboard_listener}
         )
         self.is_recording = False
 
@@ -58,7 +58,8 @@ class SpeechToKeyboard:
         # callback function for the audio listener thread
         self.stop_recording_callback = None
         # start the keyboard listener thread
-        self.keyboard_listener.start()
+        with self.keyboard_listener as l:
+            l.join()
 
     def toggle_recording(self):
         if self.is_recording and self.stop_recording_callback is not None:
@@ -73,9 +74,7 @@ class SpeechToKeyboard:
 
     def stop_keyboard_listener(self):
         logger.info("stop keyboard listener")
-        if self.keyboard_listener is not None:
-            self.keyboard_listener.stop()
-            sys.exit(0)
+        self.keyboard_listener.stop()
 
     def audio_recognizer_callback(self, recognizer, audio):
         logger.debug("in callback")
@@ -100,4 +99,4 @@ class SpeechToKeyboard:
 
 if __name__ == "__main__":
     x = SpeechToKeyboard()
-    time.sleep(1000)
+    sys.exit()
